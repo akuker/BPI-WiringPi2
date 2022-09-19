@@ -33,6 +33,7 @@
 #define PULLOFF         7
 
 #define BPI_MODEL_MIN   21
+#define BPI_MODEL_M2Z   33  //banana PI M2 Zero
 
 // Function prototypes
 //	c++ wrappers thanks to a comment by Nick Lott
@@ -82,5 +83,12 @@ extern int  bpi_wiringPiISR         (int pin, int mode, void (*function)(void)) 
 #ifdef __cplusplus
 }
 #endif
+
+//from RPI.GPIO
+int sunxi_setup(void);
+void sunxi_set_pullupdn(int gpio, int pud);
+//extensions
+int bpi_translate_pin (int pin);
+int bpi_translate_towPi (int pin);
 
 #endif

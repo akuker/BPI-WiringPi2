@@ -1,26 +1,36 @@
+WiringPI2
 
-wiringPi README
-===============
+Fork of BPI-SINOVOIP/BPI-WiringPi2:master
+with adapations for Banana PI M2 Zero board
+NOTE: ONLY TESTED WITH M2-ZERO, may NOT WORK with other boards!
 
-Please note that the official way to get wiringPi is via git from
-git.drogon.net and not GitHub.
+Bug fixes:
+- 'gpio readall' is showing the correct board type and correct numbers for BCM pins.
+- setting pull-up/pull-down on ports is working ( gpio & library call)
+- wiringPiISR (partly) implemented, see limitations below
 
-ie.
+Add on:
+- new command 'gpio readallbpi' gives BPI port numbers internally used by M2-ZERO (for information only)
 
-  git clone git://git.drogon.net/wiringPi
+Limitations:
+The 'wiringPiISR' library call ( and 'gpio wfi ...') DO NOT WORK with the wPi ports: 5,10,11,12,13,14,26,27
+These are the BPI port 64 and above, which you can identify by issuing 'gpio readallbpi'
 
-The version of wiringPi held on GitHub by "Gadgetoid" is used to build the
-wiringPython, Ruby, Perl, etc. wrappers for these other languages. This
-version may lag the official Drogon release.  Pull requests may not be
-accepted to Github....
+remaining bugs:
+There are for sure still bugs, I did not test all wiringPI features!
+Please let me know in case you find another bug ...
 
-Please see
+INSTALLATION
+-create board.sh file
+sudo su
+mkdir -p /var/lib/bananapi
+echo "BOARD=bpi-m2z" > /var/lib/bananapi/board.sh
+echo "BOARD_AUTO=bpi-m2z" >> /var/lib/bananapi/board.sh
+echo "BOARD_OLD=bpi-m64" >> /var/lib/bananapi/board.sh
 
-  http://wiringpi.com/
+- clone git repository
+git clone https://github.com/bontango/BPI-WiringPi2.git
 
-for the official documentation, etc. and the best way to submit bug reports, etc.
-is by sending an email to projects@drogon.net
-
-Thanks!
-
-  -Gordon
+- build & install
+cd BPI-WiringPi2
+./build

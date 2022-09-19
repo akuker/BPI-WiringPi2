@@ -42,11 +42,13 @@
 
 #include "../version.h"
 
+#include "../wiringPi/board/bpi-gpio.h" 
+
 extern int wiringPiDebug ;
 
 // External functions I can't be bothered creating a separate .h file for:
 
-extern void doReadall    (void) ;
+extern void doReadall    (int bpi) ;
 extern void doAllReadall (void) ;
 extern void doPins       (void) ;
 
@@ -70,7 +72,7 @@ char *usage = "Usage: gpio -v\n"
               "       gpio [-p] <read/write/wb> ...\n"
               "       gpio <read/write/aread/awritewb/pwm/clock/mode> ...\n"
               "       gpio <toggle/blink> <pin>\n"
-	      "       gpio readall/reset\n"
+	      "       gpio readall/readallbpi\n"
 	      "       gpio unexportall/exports\n"
 	      "       gpio export/edge/unexport ...\n"
 	      "       gpio wfi <pin> <mode>\n"
@@ -87,6 +89,8 @@ char *usage = "Usage: gpio -v\n"
 	      "       gpio gbr <channel>\n"
 	      "       gpio gbw <channel> <value>" ;	// No trailing newline needed here.
 
+//BPI extensions
+static int is_bpi_model = 0;
 
 #ifdef	NOT_FOR_NOW
 /*
@@ -396,13 +400,23 @@ static void doExports (UNU int argc, UNU char *argv [])
   int i, l, first ;
   char fName [128] ;
   char buf [16] ;
+  int pin;
 
   for (first = 0, i = 0 ; i < 64 ; ++i)	// Crude, but effective
   {
 
+  //BPI extension
+  //do we need to translate the pin?
+  if (is_bpi_model)
+	{
+	  pin = bcmTo_BPI_M2Z_bcm[i];
+  	  if ( pin == -1) continue;
+	}
+  else pin = i;
+
 // Try to read the direction
 
-    sprintf (fName, "/sys/class/gpio/gpio%d/direction", i) ;
+    sprintf (fName, "/sys/class/gpio/gpio%d/direction", pin) ;
     if ((fd = open (fName, O_RDONLY)) == -1)
       continue ;
 
@@ -427,7 +441,7 @@ static void doExports (UNU int argc, UNU char *argv [])
 
 // Try to Read the value
 
-    sprintf (fName, "/sys/class/gpio/gpio%d/value", i) ;
+    sprintf (fName, "/sys/class/gpio/gpio%d/value", pin) ;
     if ((fd = open (fName, O_RDONLY)) == -1)
     {
       printf ("No Value file (huh?)\n") ;
@@ -445,7 +459,7 @@ static void doExports (UNU int argc, UNU char *argv [])
 
 // Read any edge trigger file
 
-    sprintf (fName, "/sys/class/gpio/gpio%d/edge", i) ;
+    sprintf (fName, "/sys/class/gpio/gpio%d/edge", pin) ;
     if ((fd = open (fName, O_RDONLY)) == -1)
     {
       printf ("\n") ;
@@ -476,7 +490,7 @@ static void doExports (UNU int argc, UNU char *argv [])
 void doExport (int argc, char *argv [])
 {
   FILE *fd ;
-  int pin ;
+  int pin,org_pin ;
   char *mode ;
   char fName [128] ;
 
@@ -486,7 +500,14 @@ void doExport (int argc, char *argv [])
     exit (1) ;
   }
 
-  pin = atoi (argv [2]) ;
+  org_pin = pin = atoi (argv [2]) ;
+
+  //BPI extension
+  //do we need to translate the pin?
+  if (is_bpi_model)
+	{
+	  pin = bcmTo_BPI_M2Z_bcm[pin];
+	}
 
   mode = argv [3] ;
 
@@ -502,7 +523,7 @@ void doExport (int argc, char *argv [])
   sprintf (fName, "/sys/class/gpio/gpio%d/direction", pin) ;
   if ((fd = fopen (fName, "w")) == NULL)
   {
-    fprintf (stderr, "%s: Unable to open GPIO direction interface for pin %d: %s\n", argv [0], pin, strerror (errno)) ;
+    fprintf (stderr, "%s: Unable to open GPIO direction interface for pin %d(%d): %s\n", argv [0], pin, org_pin, strerror (errno)) ;
     exit (1) ;
   }
 
@@ -590,7 +611,7 @@ void doWfi (int argc, char *argv [])
 void doEdge (int argc, char *argv [])
 {
   FILE *fd ;
-  int pin ;
+  int pin,org_pin ;
   char *mode ;
   char fName [128] ;
 
@@ -600,8 +621,15 @@ void doEdge (int argc, char *argv [])
     exit (1) ;
   }
 
-  pin  = atoi (argv [2]) ;
+  org_pin = pin  = atoi (argv [2]) ;
   mode = argv [3] ;
+
+  //BPI extension
+  //do we need to translate the pin?
+  if (is_bpi_model)
+	{
+	  pin = bcmTo_BPI_M2Z_bcm[pin];
+	}
 
 // Export the pin and set direction to input
 
@@ -614,15 +642,24 @@ void doEdge (int argc, char *argv [])
   fprintf (fd, "%d\n", pin) ;
   fclose (fd) ;
 
+  //set direction with pinMode for banana PI
+  if (is_bpi_model)
+  {
+	pinMode(bpi_translate_towPi(pin), INPUT);
+  }
+  else
+  {
+
   sprintf (fName, "/sys/class/gpio/gpio%d/direction", pin) ;
   if ((fd = fopen (fName, "w")) == NULL)
   {
-    fprintf (stderr, "%s: Unable to open GPIO direction interface for pin %d: %s\n", argv [0], pin, strerror (errno)) ;
+    fprintf (stderr, "%s: Unable to open GPIO direction interface for pin %d(%d): %s\n", argv [0], pin, org_pin, strerror (errno)) ;
     exit (1) ;
   }
 
   fprintf (fd, "in\n") ;
   fclose (fd) ;
+  }//not banana Pi
 
   sprintf (fName, "/sys/class/gpio/gpio%d/edge", pin) ;
   if ((fd = fopen (fName, "w")) == NULL)
@@ -673,6 +710,13 @@ void doUnexport (int argc, char *argv [])
 
   pin = atoi (argv [2]) ;
 
+  //BPI extension
+  //do we need to translate the pin?
+  if (is_bpi_model)
+	{
+	  pin = bcmTo_BPI_M2Z_bcm[pin];
+	}
+
   if ((fd = fopen ("/sys/class/gpio/unexport", "w")) == NULL)
   {
     fprintf (stderr, "%s: Unable to open GPIO export interface\n", argv [0]) ;
@@ -696,15 +740,24 @@ void doUnexportall (char *progName)
 {
   FILE *fd ;
   int pin ;
+  int bpi_pin = -1 ;
 
   for (pin = 0 ; pin < 63 ; ++pin)
   {
+    //BPI extension
+    //do we need to translate the pin?
+    if (is_bpi_model)
+	{
+	  bpi_pin = bcmTo_BPI_M2Z_bcm[pin];
+    	  if ( bpi_pin == -1) continue;
+	}
+
     if ((fd = fopen ("/sys/class/gpio/unexport", "w")) == NULL)
     {
       fprintf (stderr, "%s: Unable to open GPIO export interface\n", progName) ;
       exit (1) ;
     }
-    fprintf (fd, "%d\n", pin) ;
+    fprintf (fd, "%d\n", bpi_pin) ;
     fclose (fd) ;
   }
 }
@@ -1271,6 +1324,7 @@ static void doVersion (char *argv [])
   wiringPiVersion (&vMaj, &vMin) ;
   printf ("gpio version: %d.%d\n", vMaj, vMin) ;
   printf ("Copyright (c) 2012-2017 Gordon Henderson\n") ;
+  printf ("BPI extensions by bontango; version: %s\n", BPI_VERSION) ;
   printf ("This is free software with ABSOLUTELY NO WARRANTY.\n") ;
   printf ("For details type: %s -warranty\n", argv [0]) ;
   printf ("\n") ;
@@ -1311,12 +1365,17 @@ static void doVersion (char *argv [])
 int main (int argc, char *argv [])
 {
   int i ;
+  int model, rev, mem, maker, overVolted ;
 
   if (getenv ("WIRINGPI_DEBUG") != NULL)
   {
     printf ("gpio: wiringPi debug mode enabled\n") ;
     wiringPiDebug = TRUE ;
   }
+
+  //BPI extension, determin if we are running on BPI model
+  piBoardId (&model, &rev, &mem, &maker, &overVolted) ;
+  if (model >= BPI_MODEL_MIN) is_bpi_model =1;
 
   if (argc == 1)
   {
@@ -1515,8 +1574,9 @@ int main (int argc, char *argv [])
   else if (strcasecmp (argv [1], "pwmc"     ) == 0) doPwmClock   (argc, argv) ;
   else if (strcasecmp (argv [1], "pwmTone"  ) == 0) doPwmTone    (argc, argv) ;
   else if (strcasecmp (argv [1], "drive"    ) == 0) doPadDrive   (argc, argv) ;
-  else if (strcasecmp (argv [1], "readall"  ) == 0) doReadall    () ;
-  else if (strcasecmp (argv [1], "nreadall" ) == 0) doReadall    () ;
+  else if (strcasecmp (argv [1], "readall"  ) == 0) doReadall    (0) ;
+  else if (strcasecmp (argv [1], "readallbpi"  ) == 0) doReadall    (1) ;
+  else if (strcasecmp (argv [1], "nreadall" ) == 0) doReadall    (0) ;
   else if (strcasecmp (argv [1], "pins"     ) == 0) doPins       () ;
   else if (strcasecmp (argv [1], "i2cdetect") == 0) doI2Cdetect  (argc, argv) ;
   else if (strcasecmp (argv [1], "i2cd"     ) == 0) doI2Cdetect  (argc, argv) ;
