@@ -36,7 +36,9 @@ DYNAMIC=libwiringPi.so.$(VERSION)
 
 #DEBUG	= -g -O0
 DEBUG	= -O2
-CC	= gcc
+CC	?= gcc
+AR  ?= ar
+RANLIB ?= ranlib 
 INCLUDE	= -I. -I./board
 DEFS	= -D_GNU_SOURCE
 CFLAGS	= $(DEBUG) $(DEFS) -Wformat=2 -Wall -Wextra -Winline $(INCLUDE) -pipe -fPIC
@@ -73,8 +75,8 @@ static:		$(STATIC)
 
 $(STATIC):	$(OBJ)
 	$Q echo "[Link (Static)]"
-	$Q ar rcs $(STATIC) $(OBJ)
-	$Q ranlib $(STATIC)
+	$Q $(AR) rcs $(STATIC) $(OBJ)
+	$Q $(RANLIB) $(STATIC)
 #	@size   $(STATIC)
 
 $(DYNAMIC):	$(OBJ)

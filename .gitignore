@@ -1,6 +1,7 @@
 *.o
 *.so
 lib*.so.*
+lib*.a
 *~
 debian-template/wiringPi
 debian-template/wiringpi-*.deb
